@@ -3,10 +3,13 @@ import "./App.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPaperPlane, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { faUser, faRobot } from "@fortawesome/free-solid-svg-icons";
+import axios from 'axios';
 
 function App() {
   const [message, setMessage] = useState("");
-  const [chatLog, setChatLog] = useState([]);
+  const [chatLog, setChatLog] = useState([
+    { role: "user", content: "" },
+  ]);  
   const [isLoading, setIsLoading] = useState(false);
 
   const inputRef = useRef();
@@ -20,40 +23,33 @@ function App() {
     chatLogRef.current.scrollTo(0, chatLogRef.current.scrollHeight);
   }, [chatLog]);
 
+  const getOptions = (messages) => ({
+    method: 'POST',
+    url: 'https://chatgpt53.p.rapidapi.com/',
+    headers: {
+      'content-type': 'application/json',
+      'X-RapidAPI-Key': '858fac585cmsha3a40ff014488bdp13e05bjsnc2703e8dd22f',
+      'X-RapidAPI-Host': 'chatgpt53.p.rapidapi.com'
+    },
+    data: { messages },
+  });
+
   const sendMessage = async () => {
     if (!message.trim()) return;
 
-    let tempChatLog = [...chatLog]; // create a copy of chatLog
-
-    const newMessage = { role: "user", content: message.trim() };
-    tempChatLog.push(newMessage); // update the copy
-    setChatLog(tempChatLog); // update the state
+    let newMessage = { role: "user", content: message.trim() };
+    setChatLog(prevChatLog => [...prevChatLog, newMessage]);
     setMessage("");
-
     setIsLoading(true);
 
     try {
-      const response = await fetch("https://chatgpt53.p.rapidapi.com/", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "X-RapidAPI-Key":
-            "858fac585cmsha3a40ff014488bdp13e05bjsnc2703e8dd22f",
-          "X-RapidAPI-Host": "chatgpt53.p.rapidapi.com",
-        },
-        body: JSON.stringify({ messages: [newMessage] }),
-      });
-
-      const data = await response.json();
-      const botMessage = {
-        role: "bot",
-        content: data.choices[0].message.content,
-      };
-      tempChatLog.push(botMessage); // update the copy
-      setChatLog(tempChatLog); // update the state
+      const options = getOptions([...chatLog, newMessage]);  // Pass the updated chatLog with newMessage
+      const result = await axios.request(options);
+      const botMessage = { role: "assistant", content: result.data.choices[0].message.content };
+      setChatLog(prevChatLog => [...prevChatLog, botMessage]);
     } catch (error) {
-      tempChatLog.push({ role: "bot", content: "Error : Check Your Api Key!" }); // update the copy
-      setChatLog(tempChatLog); // update the state
+      console.error('API call failed', error);
+      setChatLog(prevChatLog => [...prevChatLog, { role: "assistant", content: "Error : Check Your Api Key!" }]);
     } finally {
       setIsLoading(false);
     }
@@ -92,20 +88,20 @@ function App() {
                   </>
                 ) : (
                   <>
-                    <div className="flex flex-row items-start">
-                      <div className="mr-2">
-                        <FontAwesomeIcon
-                          icon={faRobot}
-                          className="bg-[#9859b7] ml-1 px-[10px] py-[11px] rounded-md"
-                        />
-                      </div>
-                      <p className="text-white bg-[#444654] rounded-md p-3">
-                        {" "}
-                        {chat.content}
-                      </p>
+                  <div className="flex flex-row items-start">
+                    <div className="mr-2">
+                      <FontAwesomeIcon
+                        icon={faRobot}
+                        className="bg-[#9859b7] ml-1 px-[10px] py-[11px] rounded-md"
+                      />
                     </div>
-                  </>
-                )}
+                    <p className="text-white bg-[#444654] rounded-md p-3">
+                      {" "}
+                      {chat.content}
+                    </p>
+                  </div>
+                </>
+              )}
               </div>
               {index !== chatLog.length - 1 && (
                 <hr className="my-4 border-t border-gray-300 w-full" />
